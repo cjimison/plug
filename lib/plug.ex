@@ -64,13 +64,111 @@ defmodule Plug do
           | %{optional(opts) => opts}
           | MapSet.t()
 
-  use Application
-
   @callback init(opts) :: opts
   @callback call(Plug.Conn.t(), opts) :: Plug.Conn.t()
 
-  @doc false
-  def start(_type, _args) do
-    Plug.Supervisor.start_link()
+  require Logger
+
+  @doc """
+  Run a series of Plugs at runtime.
+
+  The plugs given here can be either a tuple, representing a module plug
+  and their options, or a simple function that receives a connection and
+  returns a connection.
+
+  If any of the plugs halt, the remaining plugs are not invoked. If the
+  given connection was already halted, none of the plugs are invoked
+  either.
+
+  While `Plug.Builder` works at compile-time, this is a straight-forward
+  alternative that works at runtime.
+
+  ## Examples
+
+      Plug.run(conn, [{Plug.Head, []}, IO.inspect/1])
+
+  ## Options
+
+    * `:log_on_halt` - a log level to be used if a Plug halts
+
+  """
+  @spec run(Plug.Conn.t(), [{module, opts} | (Plug.Conn.t() -> Plug.Conn.t())], Keyword.t()) ::
+          Plug.Conn.t()
+  def run(conn, plugs, opts \\ [])
+
+  def run(%Plug.Conn{halted: true} = conn, _plugs, _opts),
+    do: conn
+
+  def run(%Plug.Conn{} = conn, plugs, opts),
+    do: do_run(conn, plugs, Keyword.get(opts, :log_on_halt))
+
+  defp do_run(conn, [{mod, opts} | plugs], level) when is_atom(mod) do
+    case mod.call(conn, mod.init(opts)) do
+      %Plug.Conn{halted: true} = conn ->
+        level && Logger.log(level, "Plug halted in #{inspect(mod)}.call/2")
+        conn
+
+      %Plug.Conn{} = conn ->
+        do_run(conn, plugs, level)
+
+      other ->
+        raise "expected #{inspect(mod)} to return Plug.Conn, got: #{inspect(other)}"
+    end
   end
+
+  defp do_run(conn, [fun | plugs], level) when is_function(fun, 1) do
+    case fun.(conn) do
+      %Plug.Conn{halted: true} = conn ->
+        level && Logger.log(level, "Plug halted in #{inspect(fun)}")
+        conn
+
+      %Plug.Conn{} = conn ->
+        do_run(conn, plugs, level)
+
+      other ->
+        raise "expected #{inspect(fun)} to return Plug.Conn, got: #{inspect(other)}"
+    end
+  end
+
+  defp do_run(conn, [], _level), do: conn
+
+  @doc """
+  Forwards requests to another Plug setting the connection to a trailing subpath of the request.
+
+  The `path_info` on the forwarded connection will only include the trailing segments
+  of the request path supplied to forward, while `conn.script_name` will
+  retain the correct base path for e.g. url generation.
+
+  ## Example
+
+      defmodule Router do
+        def init(opts), do: opts
+
+        def call(conn, opts) do
+          case conn do
+            # Match subdomain
+            %{host: "admin." <> _} ->
+              AdminRouter.call(conn, opts)
+
+            # Match path on localhost
+            %{host: "localhost", path_info: ["admin" | rest]} ->
+              Plug.forward(conn, rest, AdminRouter, opts)
+
+            _ ->
+              MainRouter.call(conn, opts)
+          end
+        end
+      end
+
+  """
+  @spec forward(Plug.Conn.t(), [String.t()], atom, Plug.opts()) :: Plug.Conn.t()
+  def forward(%Plug.Conn{path_info: path, script_name: script} = conn, new_path, target, opts) do
+    {base, split_path} = Enum.split(path, length(path) - length(new_path))
+
+    conn = do_forward(target, %{conn | path_info: split_path, script_name: script ++ base}, opts)
+    %{conn | path_info: path, script_name: script}
+  end
+
+  defp do_forward({mod, fun}, conn, opts), do: apply(mod, fun, [conn, opts])
+  defp do_forward(mod, conn, opts), do: mod.call(conn, opts)
 end

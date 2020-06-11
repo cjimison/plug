@@ -291,7 +291,7 @@ defmodule Plug.Router do
         catch
           kind, reason ->
             duration = System.monotonic_time() - start
-            metadata = %{kind: kind, error: reason, stacktrace: __STACKTRACE__}
+            metadata = %{kind: kind, reason: reason, stacktrace: __STACKTRACE__}
 
             :telemetry.execute(
               [:plug, :router_dispatch, :exception],
@@ -483,7 +483,7 @@ defmodule Plug.Router do
       # Delegate the matching to the match/3 macro along with the options
       # specified by Keyword.split/2.
       match path <> "/*glob", options do
-        Plug.Router.Utils.forward(
+        Plug.forward(
           var!(conn),
           var!(glob),
           @plug_forward_target,

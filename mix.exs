@@ -1,7 +1,7 @@
 defmodule Plug.MixProject do
   use Mix.Project
 
-  @version "1.10.1"
+  @version "1.10.3"
   @description "A specification and conveniences for composable modules between web applications"
   @xref_exclude [Plug.Cowboy, :telemetry]
 
@@ -34,7 +34,7 @@ defmodule Plug.MixProject do
   def application do
     [
       extra_applications: [:logger, :eex],
-      mod: {Plug, []},
+      mod: {Plug.Application, []},
       env: [validate_header_keys_during_test: true]
     ]
   end
@@ -43,7 +43,7 @@ defmodule Plug.MixProject do
     [
       {:mime, "~> 1.0"},
       {:plug_crypto, "~> 1.1.1 or ~> 1.2"},
-      {:telemetry, "~> 0.4", optional: true},
+      {:telemetry, "~> 0.4"},
       {:ex_doc, "~> 0.21", only: :docs}
     ]
   end
