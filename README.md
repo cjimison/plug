@@ -1,6 +1,6 @@
 # Plug
 
-[![Build Status](https://travis-ci.org/elixir-plug/plug.svg?branch=master)](https://travis-ci.org/elixir-plug/plug)
+[![Build Status](https://github.com/elixir-plug/plug/workflows/CI/badge.svg)](https://github.com/elixir-plug/plug/actions?query=workflow%3A%22CI%22)
 [![Inline docs](https://inch-ci.org/github/elixir-plug/plug.svg?branch=master)](http://inch-ci.org/github/elixir-plug/plug)
 
 Plug is:
@@ -216,6 +216,7 @@ This project aims to ship with different plugs that can be re-used across applic
   * `Plug.Parsers` - responsible for parsing the request body given its content-type;
   * `Plug.RequestId` - sets up a request ID to be used in logs;
   * `Plug.Session` - handles session management and storage;
+  * `Plug.BasicAuth` - provides Basic HTTP authentication;
   * `Plug.SSL` - enforces requests through SSL;
   * `Plug.Static` - serves static files;
   * `Plug.Telemetry` - instruments the plug pipeline with `:telemetry` events;

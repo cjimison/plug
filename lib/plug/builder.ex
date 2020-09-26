@@ -115,7 +115,7 @@ defmodule Plug.Builder do
         plug_builder_call(conn, opts)
       end
 
-      defoverridable init: 1, call: 2
+      defoverridable Plug
 
       import Plug.Conn
       import Plug.Builder, only: [plug: 1, plug: 2, builder_opts: 0]
@@ -346,27 +346,19 @@ defmodule Plug.Builder do
         :function -> "expected #{plug}/2 to return a Plug.Conn"
       end <> ", all plugs must receive a connection (conn) and return a connection"
 
-    {fun, meta, [arg, [do: clauses]]} =
-      quote do
-        case unquote(compile_guards(call, guards)) do
-          %Plug.Conn{halted: true} = conn ->
-            unquote(log_halt(plug_type, plug, env, builder_opts))
-            conn
+    quote generated: true do
+      case unquote(compile_guards(call, guards)) do
+        %Plug.Conn{halted: true} = conn ->
+          unquote(log_halt(plug_type, plug, env, builder_opts))
+          conn
 
-          %Plug.Conn{} = conn ->
-            unquote(acc)
+        %Plug.Conn{} = conn ->
+          unquote(acc)
 
-          other ->
-            raise unquote(error_message) <> ", got: #{inspect(other)}"
-        end
+        other ->
+          raise unquote(error_message) <> ", got: #{inspect(other)}"
       end
-
-    clauses =
-      Enum.map(clauses, fn {:->, meta, args} ->
-        {:->, [generated: true] ++ meta, args}
-      end)
-
-    {fun, meta, [arg, [do: clauses]]}
+    end
   end
 
   defp quote_plug_call(:function, plug, opts) do

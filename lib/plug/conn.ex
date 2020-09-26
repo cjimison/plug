@@ -969,6 +969,8 @@ defmodule Plug.Conn do
   ## Options
 
     * `:length` - the maximum query string length. Defaults to `1_000_000` bytes.
+    * `:validate_utf8` - boolean that tells whether or not to validate the keys and
+      values of the decoded query string are UTF-8 encoded. Defaults to `true`.
 
   """
   @spec fetch_query_params(t, Keyword.t()) :: t
@@ -1394,11 +1396,11 @@ defmodule Plug.Conn do
   @doc """
   Puts a response cookie in the connection.
 
-  If the `:signed` or `:encrypted` flag are given, then the cookie
+  If the `:sign` or `:encrypt` flag are given, then the cookie
   value can be any term.
 
-  If the cookie not signed nor encrypted, then the value must be a binary.
-  Note the is not automatically escaped.  Therefore if you want to store
+  If the cookie is not signed nor encrypted, then the value must be a binary.
+  Note the value is not automatically escaped. Therefore if you want to store
   values with non-alphanumeric characters, you must either sign or encrypt
   the cookie or consider explicitly escaping the cookie value by using a
   function such as `Base.encode64(value, padding: false)` when writing and
@@ -1450,8 +1452,8 @@ defmodule Plug.Conn do
       to true when the connection is HTTPS
     * `:extra` - string to append to cookie. Use this to take advantage of
       non-standard cookie attributes.
-    * `:signed` - when true, signs the cookie
-    * `:encrypted` - when true, encrypts the cookie
+    * `:sign` - when true, signs the cookie
+    * `:encrypt` - when true, encrypts the cookie
     * `:same_site` - set the cookie SameSite attribute to a string value.
       If no string value is set, the attribute is omitted.
 
@@ -1503,10 +1505,12 @@ defmodule Plug.Conn do
   Check `put_resp_cookie/4` for more information.
   """
   @spec delete_resp_cookie(t, binary, Keyword.t()) :: t
-  def delete_resp_cookie(%Conn{resp_cookies: resp_cookies} = conn, key, opts \\ [])
+  def delete_resp_cookie(%Conn{} = conn, key, opts \\ [])
       when is_binary(key) and is_list(opts) do
+    %{resp_cookies: resp_cookies, scheme: scheme} = conn
     opts = opts ++ [universal_time: @epoch, max_age: 0]
-    resp_cookies = Map.put(resp_cookies, key, :maps.from_list(opts))
+    cookie = opts |> Map.new() |> maybe_secure_cookie(scheme)
+    resp_cookies = Map.put(resp_cookies, key, cookie)
     update_cookies(%{conn | resp_cookies: resp_cookies}, &Map.delete(&1, key))
   end
 
